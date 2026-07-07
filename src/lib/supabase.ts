@@ -50,6 +50,16 @@ function generateUserCode(): string {
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
 
+// Helper to wait for session to be established after signUp
+async function waitForSession(userId: string, maxAttempts = 10): Promise<void> {
+  for (let i = 0; i < maxAttempts; i++) {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session && session.user.id === userId) return;
+    await new Promise((r) => setTimeout(r, 300));
+  }
+  throw new Error('Session non établie. Veuillez réessayer.');
+}
+
 export async function registerUser(
   name: string,
   email: string,
@@ -57,7 +67,11 @@ export async function registerUser(
 ): Promise<AuthUser> {
   const { data, error } = await supabase.auth.signUp({ email, password });
   if (error) throw new Error(error.message);
+
   const userId = data.user!.id;
+
+  // Wait for session to be established (required for RLS policies)
+  await waitForSession(userId);
 
   // Generate unique user_code
   let userCode = generateUserCode();
@@ -79,7 +93,7 @@ export async function registerUser(
     .insert({ created_by: userId })
     .select('id')
     .single();
-  if (coupleErr) throw new Error(coupleErr.message);
+  if (coupleErr) throw new Error('Erreur création couple: ' + coupleErr.message);
 
   const coupleId: string = couple.id;
 
@@ -90,7 +104,7 @@ export async function registerUser(
     user_code: userCode,
     couple_id: coupleId,
   });
-  if (profileErr) throw new Error(profileErr.message);
+  if (profileErr) throw new Error('Erreur création profil: ' + profileErr.message);
 
   // Persist locally so unlock screen works offline
   localStorage.setItem('paired_user_code', userCode);
@@ -102,16 +116,25 @@ export async function registerUser(
 
 export async function loginUser(email: string, password: string): Promise<AuthUser> {
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-  if (error) throw new Error(error.message);
+  if (error) {
+    if (error.message.includes('Invalid login credentials')) {
+      throw new Error('Email ou mot de passe incorrect');
+    }
+    throw new Error(error.message);
+  }
+
   const userId = data.user!.id;
+
+  // Wait for session to be fully established
+  await waitForSession(userId);
 
   const { data: profile, error: profileErr } = await supabase
     .from('user_profiles')
     .select('name, user_code, couple_id')
     .eq('id', userId)
     .maybeSingle();
-  if (profileErr) throw new Error(profileErr.message);
-  if (!profile) throw new Error('Profil introuvable');
+  if (profileErr) throw new Error('Erreur chargement profil: ' + profileErr.message);
+  if (!profile) throw new Error('Profil introuvable. Veuillez créer un compte.');
 
   const name: string = profile.name;
   const userCode: string = profile.user_code;
