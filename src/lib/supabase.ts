@@ -50,21 +50,11 @@ function generateUserCode(): string {
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
 
-function generateRandomPassword(): string {
-  // Generate a secure random password (user never sees this)
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$%';
-  let password = '';
-  for (let i = 0; i < 16; i++) password += chars[Math.floor(Math.random() * chars.length)];
-  return password;
-}
-
 export async function registerUser(
   name: string,
-  email: string
+  email: string,
+  password: string
 ): Promise<AuthUser> {
-  // Auto-generate a secure password (user never needs to know it)
-  const password = generateRandomPassword();
-
   // Pass the name in user metadata so the trigger can use it
   const { data, error } = await supabase.auth.signUp({
     email,
@@ -103,18 +93,28 @@ export async function registerUser(
   return { id: userId, name: userName, userCode, coupleId };
 }
 
-export async function loginUser(email: string): Promise<AuthUser> {
-  // Send magic link via email
-  const { error } = await supabase.auth.signInWithOtp({
-    email,
-    options: {
-      emailRedirectTo: window.location.origin,
-    },
-  });
+export async function loginUser(email: string, password: string): Promise<AuthUser> {
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) throw new Error(error.message);
+  const userId = data.user!.id;
 
-  // Return a placeholder - user will complete login via magic link
-  throw new Error('UNSENT_MAGIC_LINK'); // Signal to show "check your email" message
+  const { data: profile, error: profileErr } = await supabase
+    .from('user_profiles')
+    .select('name, user_code, couple_id')
+    .eq('id', userId)
+    .maybeSingle();
+  if (profileErr) throw new Error(profileErr.message);
+  if (!profile) throw new Error('Profil introuvable');
+
+  const name: string = profile.name;
+  const userCode: string = profile.user_code;
+  const coupleId: string | null = profile.couple_id;
+
+  localStorage.setItem('paired_user_code', userCode);
+  localStorage.setItem('paired_user_name', name);
+  if (coupleId) localStorage.setItem('paired_couple_id', coupleId);
+
+  return { id: userId, name, userCode, coupleId };
 }
 
 export async function getCurrentUser(): Promise<AuthUser | null> {

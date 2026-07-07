@@ -83,14 +83,14 @@ export default function App() {
 
   // ── Auth handlers ──────────────────────────────────────────────────────────
 
-  const handleRegister = async (name: string, email: string) => {
-    const user = await registerUser(name, email);
+  const handleRegister = async (name: string, email: string, password: string) => {
+    const user = await registerUser(name, email, password);
     setAuthUser(user);
     return { userId: user.id, name: user.name, userCode: user.userCode, coupleId: user.coupleId };
   };
 
-  const handleLogin = async (email: string) => {
-    const user = await loginUser(email);
+  const handleLogin = async (email: string, password: string) => {
+    const user = await loginUser(email, password);
     setAuthUser(user);
     return { userId: user.id, name: user.name, userCode: user.userCode, coupleId: user.coupleId };
   };
