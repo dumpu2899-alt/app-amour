@@ -1,10 +1,11 @@
 import { Heart } from 'lucide-react';
 
 type Props = {
+  onRegister: () => void;
   onLogin: () => void;
 };
 
-export default function LandingPage({ onLogin }: Props) {
+export default function LandingPage({ onRegister, onLogin }: Props) {
   return (
     <div className="min-h-screen bg-[#f7f1e8]">
       {/* Nav */}
@@ -15,12 +16,20 @@ export default function LandingPage({ onLogin }: Props) {
           </div>
           <span className="font-bold text-[#2d1142] text-lg tracking-tight">ALOWlove</span>
         </div>
-        <button
-          onClick={onLogin}
-          className="bg-[#2d1142] text-white text-sm font-semibold px-5 py-2.5 rounded-full hover:opacity-90 transition-opacity"
-        >
-          Se connecter
-        </button>
+        <div className="flex items-center gap-4">
+          <button
+            onClick={onLogin}
+            className="text-sm font-medium text-[#2d1142] hover:opacity-70 transition-opacity"
+          >
+            Se connecter
+          </button>
+          <button
+            onClick={onRegister}
+            className="bg-[#2d1142] text-white text-sm font-semibold px-5 py-2.5 rounded-full hover:opacity-90 transition-opacity"
+          >
+            Commencer gratuitement
+          </button>
+        </div>
       </nav>
 
       {/* Hero */}
@@ -41,12 +50,20 @@ export default function LandingPage({ onLogin }: Props) {
             de l'autre — puis vos deux réponses se révèlent ensemble.
             Une petite conversation, tous les jours, qui vous ressemble.
           </p>
-          <button
-            onClick={onLogin}
-            className="bg-[#2d1142] text-white font-semibold px-6 py-3.5 rounded-full hover:opacity-90 transition-opacity"
-          >
-            Se connecter
-          </button>
+          <div className="flex items-center gap-4 flex-wrap">
+            <button
+              onClick={onRegister}
+              className="bg-[#2d1142] text-white font-semibold px-6 py-3.5 rounded-full hover:opacity-90 transition-opacity"
+            >
+              Créer notre espace
+            </button>
+            <button
+              onClick={onLogin}
+              className="text-[#2d1142] font-medium text-sm underline underline-offset-4 hover:opacity-70 transition-opacity"
+            >
+              J'ai déjà un compte
+            </button>
+          </div>
         </div>
 
         {/* Right — stacked cards */}
