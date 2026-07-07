@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { supabase, AppState } from '../lib/supabase';
+import { supabase, AppState, isDemoMode } from '../lib/supabase';
 
 type Progress = {
   appState: AppState | null;
@@ -19,6 +19,24 @@ export function useProgress(coupleId: string | null) {
   const loadProgress = useCallback(async () => {
     if (!coupleId) {
       setProgress({ appState: null, completedIds: new Set(), loading: false });
+      return;
+    }
+
+    // Demo mode: use localStorage for progress
+    if (isDemoMode()) {
+      const storedCompletions = localStorage.getItem('demo_completions');
+      const completedIds = storedCompletions
+        ? new Set(JSON.parse(storedCompletions))
+        : new Set<string>();
+      const storedIndex = localStorage.getItem('demo_question_index');
+      const appState: AppState = {
+        id: 'demo-state',
+        streak_count: 1,
+        last_active_date: new Date().toISOString().split('T')[0],
+        current_question_index: storedIndex ? parseInt(storedIndex, 10) : 0,
+        created_at: new Date().toISOString(),
+      };
+      setProgress({ appState, completedIds, loading: false });
       return;
     }
 
@@ -68,6 +86,22 @@ export function useProgress(coupleId: string | null) {
   const markCompleted = useCallback(
     async (activityType: string, activityId: string, answer?: string) => {
       if (!coupleId) return;
+
+      // Demo mode: save to localStorage
+      if (isDemoMode()) {
+        const storedCompletions = localStorage.getItem('demo_completions');
+        const completedIds = storedCompletions
+          ? new Set(JSON.parse(storedCompletions))
+          : new Set<string>();
+        completedIds.add(`${activityType}:${activityId}`);
+        localStorage.setItem('demo_completions', JSON.stringify([...completedIds]));
+        setProgress((prev) => ({
+          ...prev,
+          completedIds,
+        }));
+        return;
+      }
+
       await supabase.from('activity_completions').upsert(
         {
           activity_type: activityType,
@@ -91,6 +125,19 @@ export function useProgress(coupleId: string | null) {
   const advanceQuestion = useCallback(async () => {
     if (!progress.appState) return;
     const newIndex = progress.appState.current_question_index + 1;
+
+    // Demo mode: save to localStorage
+    if (isDemoMode()) {
+      localStorage.setItem('demo_question_index', String(newIndex));
+      setProgress((prev) => ({
+        ...prev,
+        appState: prev.appState
+          ? { ...prev.appState, current_question_index: newIndex }
+          : null,
+      }));
+      return;
+    }
+
     await supabase
       .from('app_state')
       .update({ current_question_index: newIndex })

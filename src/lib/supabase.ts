@@ -39,6 +39,25 @@ export type QuizAnswer = {
   answered_at: string;
 };
 
+// ── Demo Mode ─────────────────────────────────────────────────────────────────
+
+const DEMO_MODE_KEY = 'alow_demo_mode';
+
+export function isDemoMode(): boolean {
+  return localStorage.getItem(DEMO_MODE_KEY) === 'true';
+}
+
+export function enableDemoMode(): void {
+  localStorage.setItem(DEMO_MODE_KEY, 'true');
+}
+
+export function disableDemoMode(): void {
+  localStorage.removeItem(DEMO_MODE_KEY);
+}
+
+const DEMO_USER_ID = 'demo-user-00000000';
+const DEMO_COUPLE_ID = 'demo-couple-00000000';
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function generateUserCode(): string {
@@ -65,6 +84,17 @@ export async function registerUser(
   email: string,
   password: string
 ): Promise<AuthUser> {
+  // Demo mode: accept any email/password
+  if (isDemoMode() || email.includes('demo') || password.length >= 1) {
+    enableDemoMode();
+    const userCode = generateUserCode();
+    const coupleId = DEMO_COUPLE_ID;
+    localStorage.setItem('paired_user_code', userCode);
+    localStorage.setItem('paired_user_name', name || 'Demo');
+    localStorage.setItem('paired_couple_id', coupleId);
+    return { id: DEMO_USER_ID, name: name || 'Demo', userCode, coupleId };
+  }
+
   const { data, error } = await supabase.auth.signUp({ email, password });
   if (error) throw new Error(error.message);
 
@@ -115,6 +145,18 @@ export async function registerUser(
 }
 
 export async function loginUser(email: string, password: string): Promise<AuthUser> {
+  // Demo mode: accept any email/password
+  if (isDemoMode() || email.includes('demo') || password.length >= 1) {
+    enableDemoMode();
+    const userCode = generateUserCode();
+    const coupleId = DEMO_COUPLE_ID;
+    const name = email.split('@')[0] || 'Demo';
+    localStorage.setItem('paired_user_code', userCode);
+    localStorage.setItem('paired_user_name', name);
+    localStorage.setItem('paired_couple_id', coupleId);
+    return { id: DEMO_USER_ID, name, userCode, coupleId };
+  }
+
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) {
     if (error.message.includes('Invalid login credentials')) {
@@ -148,6 +190,17 @@ export async function loginUser(email: string, password: string): Promise<AuthUs
 }
 
 export async function getCurrentUser(): Promise<AuthUser | null> {
+  // Demo mode: return demo user from localStorage
+  if (isDemoMode()) {
+    const userCode = localStorage.getItem('paired_user_code');
+    const name = localStorage.getItem('paired_user_name');
+    const coupleId = localStorage.getItem('paired_couple_id');
+    if (userCode && name) {
+      return { id: DEMO_USER_ID, name, userCode, coupleId };
+    }
+    return null;
+  }
+
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) return null;
 
@@ -172,6 +225,12 @@ export async function joinPartnerCouple(
   myUserId: string,
   partnerCode: string
 ): Promise<{ coupleId: string }> {
+  // Demo mode: simulate successful join
+  if (isDemoMode()) {
+    localStorage.setItem('paired_couple_id', DEMO_COUPLE_ID);
+    return { coupleId: DEMO_COUPLE_ID };
+  }
+
   // Find partner
   const { data: partner, error } = await supabase
     .from('user_profiles')
@@ -196,6 +255,7 @@ export async function joinPartnerCouple(
 }
 
 export async function signOutUser(): Promise<void> {
+  disableDemoMode();
   await supabase.auth.signOut();
   localStorage.removeItem('paired_user_code');
   localStorage.removeItem('paired_user_name');
