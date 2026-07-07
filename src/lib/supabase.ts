@@ -39,82 +39,20 @@ export type QuizAnswer = {
   answered_at: string;
 };
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function generateUserCode(): string {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no 0/O/1/I confusion
-  let code = '';
-  for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
-  return code;
-}
-
 // ── Auth ──────────────────────────────────────────────────────────────────────
 
-export async function registerUser(
-  name: string,
-  email: string,
-  password: string
-): Promise<AuthUser> {
-  // Pass the name in user metadata so the trigger can use it
-  const { data, error } = await supabase.auth.signUp({
+export async function loginUser(email: string): Promise<AuthUser> {
+  // Send magic link via email
+  const { error } = await supabase.auth.signInWithOtp({
     email,
-    password,
     options: {
-      data: { name },
+      emailRedirectTo: window.location.origin,
     },
   });
   if (error) throw new Error(error.message);
-  if (!data.user) throw new Error("Échec de la création du compte");
 
-  const userId = data.user.id;
-
-  // The trigger (handle_new_user_signup) already created:
-  // - couple (with created_by = userId)
-  // - user_profile (with name, user_code, couple_id)
-  // Just fetch the profile to get the generated values
-  const { data: profile, error: profileErr } = await supabase
-    .from('user_profiles')
-    .select('name, user_code, couple_id')
-    .eq('id', userId)
-    .single();
-
-  if (profileErr) throw new Error(profileErr.message);
-  if (!profile) throw new Error("Profil non trouvé après inscription");
-
-  const userName: string = profile.name || name;
-  const userCode: string = profile.user_code;
-  const coupleId: string | null = profile.couple_id;
-
-  // Persist locally so unlock screen works offline
-  localStorage.setItem('paired_user_code', userCode);
-  localStorage.setItem('paired_user_name', userName);
-  if (coupleId) localStorage.setItem('paired_couple_id', coupleId);
-
-  return { id: userId, name: userName, userCode, coupleId };
-}
-
-export async function loginUser(email: string, password: string): Promise<AuthUser> {
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-  if (error) throw new Error(error.message);
-  const userId = data.user!.id;
-
-  const { data: profile, error: profileErr } = await supabase
-    .from('user_profiles')
-    .select('name, user_code, couple_id')
-    .eq('id', userId)
-    .maybeSingle();
-  if (profileErr) throw new Error(profileErr.message);
-  if (!profile) throw new Error('Profil introuvable');
-
-  const name: string = profile.name;
-  const userCode: string = profile.user_code;
-  const coupleId: string | null = profile.couple_id;
-
-  localStorage.setItem('paired_user_code', userCode);
-  localStorage.setItem('paired_user_name', name);
-  if (coupleId) localStorage.setItem('paired_couple_id', coupleId);
-
-  return { id: userId, name, userCode, coupleId };
+  // Return a placeholder - user will complete login via magic link
+  throw new Error('UNSENT_MAGIC_LINK'); // Signal to show "check your email" message
 }
 
 export async function getCurrentUser(): Promise<AuthUser | null> {

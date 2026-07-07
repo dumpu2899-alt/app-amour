@@ -17,7 +17,6 @@ import { DiscussTab, TimelineTab } from './components/SimpleScreens';
 import { NousTab } from './components/NousTab';
 import { useProgress } from './hooks/useProgress';
 import {
-  registerUser,
   loginUser,
   getCurrentUser,
   joinPartnerCouple,
@@ -31,7 +30,6 @@ type AppFlowState =
   | 'gate'
   | 'loading'
   | 'landing'
-  | 'register'
   | 'login'
   | 'pairing'
   | 'locked'
@@ -83,14 +81,8 @@ export default function App() {
 
   // ── Auth handlers ──────────────────────────────────────────────────────────
 
-  const handleRegister = async (name: string, email: string, password: string) => {
-    const user = await registerUser(name, email, password);
-    setAuthUser(user);
-    return { userId: user.id, name: user.name, userCode: user.userCode, coupleId: user.coupleId };
-  };
-
-  const handleLogin = async (email: string, password: string) => {
-    const user = await loginUser(email, password);
+  const handleLogin = async (email: string) => {
+    const user = await loginUser(email);
     setAuthUser(user);
     return { userId: user.id, name: user.name, userCode: user.userCode, coupleId: user.coupleId };
   };
@@ -179,20 +171,7 @@ export default function App() {
   if (flowState === 'landing') {
     return (
       <LandingPage
-        onRegister={() => setFlowState('register')}
         onLogin={() => setFlowState('login')}
-      />
-    );
-  }
-
-  if (flowState === 'register') {
-    return (
-      <AuthPage
-        initialMode="register"
-        onSuccess={handleAuthSuccess}
-        onBack={() => setFlowState('landing')}
-        register={handleRegister}
-        login={handleLogin}
       />
     );
   }
@@ -200,10 +179,8 @@ export default function App() {
   if (flowState === 'login') {
     return (
       <AuthPage
-        initialMode="login"
         onSuccess={handleAuthSuccess}
         onBack={() => setFlowState('landing')}
-        register={handleRegister}
         login={handleLogin}
       />
     );
